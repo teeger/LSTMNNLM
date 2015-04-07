@@ -95,11 +95,11 @@ class LSTMRecurrentNeuralNetLM : public NeuralNetLMBase {
   std::size_t num_hiddens_;
 
   neuralnet::FullCircularBuffer<neuralnet::NeuralNetSparseLayer> input_layers_;
-  neuralnet::NeuralNetLSTMCell lstm_cells_;
-  neuralnet::NeuralNetIdentityLayer pre_cell_in_layer_;
-  neuralnet::NeuralNetIdentityLayer pre_cell_ig_layer_;
-  neuralnet::NeuralNetIdentityLayer pre_cell_og_layer_;
-  neuralnet::NeuralNetIdentityLayer pre_cell_fg_layer_;
+  neuralnet::NeuralNetLSTMCell lstm_cells_, last_lstm_cells_;
+  neuralnet::FullCircularBuffer<neuralnet::NeuralNetSigmoidLayer> pre_cell_in_layers_;
+  neuralnet::FullCircularBuffer<neuralnet::NeuralNetSigmoidLayer> pre_cell_ig_layers_;
+  neuralnet::FullCircularBuffer<neuralnet::NeuralNetSigmoidLayer> pre_cell_og_layers_;
+  neuralnet::FullCircularBuffer<neuralnet::NeuralNetSigmoidLayer> pre_cell_fg_layers_;
   //neuralnet::FullCircularBuffer<neuralnet::NeuralNetSigmoidLayer> hidden_layers_;
   neuralnet::FullCircularBuffer<neuralnet::NeuralNetIdentityLayer> hidden_layers_;
   neuralnet::NeuralNetSoftmaxLayer output_layer_;

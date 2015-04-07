@@ -51,10 +51,10 @@ void NeuralNetLSTMCell::AllocateModel() {
     memory_cell_layers_[i].set_nneurons(num_cells_, false, false);
     memory_cell_layers_[i].set_errorinput_cutoff(errorinput_cutoff_);
   }
-  input_gate_layer_.set_nneurons(num_cells_, false, false);
-  output_gate_layer_.set_nneurons(num_cells_, false, false);
-  forget_gate_layer_.set_nneurons(num_cells_, false, false);
-  input_layer_.set_nneurons(num_cells_, false, false);
+  //input_gate_layer_.set_nneurons(num_cells_, false, false);
+  //output_gate_layer_.set_nneurons(num_cells_, false, false);
+  //forget_gate_layer_.set_nneurons(num_cells_, false, false);
+  //input_layer_.set_nneurons(num_cells_, false, false);
   mc_output_layers_.set_nneurons(num_cells_, false, false);
 
   connection_cell_ig_.set_dims(true, num_cells_, num_cells_);
@@ -80,42 +80,6 @@ void NeuralNetLSTMCell::AllocateModel() {
 
   map_connection_.set_nneurons(num_cells_);
 
-  // always have bias term for lstm cell
-  bias_layer_.set_nneurons(1, true, false);
-  bias_layer_.SetActivationsToValue(1.0);
-  
-  //connection_bias_input_.set_dims(false, 1, num_cells_);
-  //last_connection_bias_input_.set_dims(false, 1, num_cells_);
-  //connection_bias_input_.set_adagrad(adagrad_);
-  //last_connection_bias_input_.set_adagrad(adagrad_);
-  //// Do not penalize bias
-  //connection_bias_input_.set_l2_regularization_param(0.f);
-  //last_connection_bias_input_.set_l2_regularization_param(0.f);
-
-  //connection_bias_ig_.set_dims(false, 1, num_cells_);
-  //last_connection_bias_ig_.set_dims(false, 1, num_cells_);
-  //connection_bias_ig_.set_adagrad(adagrad_);
-  //last_connection_bias_ig_.set_adagrad(adagrad_);
-  //// Do not penalize bias
-  //connection_bias_ig_.set_l2_regularization_param(0.f);
-  //last_connection_bias_ig_.set_l2_regularization_param(0.f);
-
-  //connection_bias_og_.set_dims(false, 1, num_cells_);
-  //last_connection_bias_og_.set_dims(false, 1, num_cells_);
-  //connection_bias_og_.set_adagrad(adagrad_);
-  //last_connection_bias_og_.set_adagrad(adagrad_);
-  //// Do not penalize bias
-  //connection_bias_og_.set_l2_regularization_param(0.f);
-  //last_connection_bias_og_.set_l2_regularization_param(0.f);
-
-  //connection_bias_fg_.set_dims(false, 1, num_cells_);
-  //last_connection_bias_fg_.set_dims(false, 1, num_cells_);
-  //connection_bias_fg_.set_adagrad(adagrad_);
-  //last_connection_bias_fg_.set_adagrad(adagrad_);
-  //// Do not penalize bias
-  //connection_bias_fg_.set_l2_regularization_param(0.f);
-  //last_connection_bias_fg_.set_l2_regularization_param(0.f);
-
 }
 
 void NeuralNetLSTMCell::ResetActivations() {
@@ -125,10 +89,6 @@ void NeuralNetLSTMCell::ResetActivations() {
   }
 
   // Initialize all the gates and input layer with zeros.
-  input_gate_layer_.SetActivationsToValue(0.0f);
-  output_gate_layer_.SetActivationsToValue(0.0f);
-  forget_gate_layer_.SetActivationsToValue(0.0f);
-  input_layer_.SetActivationsToValue(0.0f);
   mc_output_layers_.SetActivationsToValue(0.0f);
 
 }
@@ -173,135 +133,56 @@ void NeuralNetLSTMCell::GateForwardPropagate(const NeuralNetLayer &input, const 
   }
 }
 
-void NeuralNetLSTMCell::ForwardPropagate(const NeuralNetLayer &pre_input, const NeuralNetLayer &pre_ig, const NeuralNetLayer &pre_og, const NeuralNetLayer &pre_fg, NeuralNetLayerBase &hidden_layer) {
-  assert(pre_input.nneurons() == num_cells_);
-  assert(pre_ig.nneurons() == num_cells_);
-  assert(pre_og.nneurons() == num_cells_);
-  assert(pre_fg.nneurons() == num_cells_);
+void NeuralNetLSTMCell::ForwardPropagate(NeuralNetLayer &input_layer, NeuralNetLayer &input_gate_layer, NeuralNetLayer &output_gate_layer, NeuralNetLayer &forget_gate_layer, NeuralNetLayerBase &hidden_layer) {
+  assert(input_layer.nneurons() == num_cells_);
+  assert(input_gate_layer.nneurons() == num_cells_);
+  assert(output_gate_layer.nneurons() == num_cells_);
+  assert(forget_gate_layer.nneurons() == num_cells_);
   assert(hidden_layer.nneurons() == num_cells_);
   
-  input_layer_.ResetInputForActivations();
-  input_gate_layer_.ResetInputForActivations();
-  output_gate_layer_.ResetInputForActivations();
-  forget_gate_layer_.ResetInputForActivations();
-  
-  map_connection_.ForwardPropagate(pre_input, input_layer_);
-  input_layer_.ComputeActivations();
-
-  map_connection_.ForwardPropagate(pre_ig, input_gate_layer_);
-  map_connection_.ForwardPropagate(pre_og, output_gate_layer_);
-  map_connection_.ForwardPropagate(pre_fg, forget_gate_layer_);
+  input_layer.ComputeActivations();
 
   // last memory cell -> input gate
   // last memory cell -> forget gate
-  connection_cell_ig_.ForwardPropagate(memory_cell_layers_[0], input_gate_layer_);
-  //connection_bias_ig_.ForwardPropagate(bias_layer_, input_gate_layer_);
-  input_gate_layer_.ComputeActivations();
-  connection_cell_fg_.ForwardPropagate(memory_cell_layers_[0], forget_gate_layer_);
-  //connection_bias_fg_.ForwardPropagate(bias_layer_, forget_gate_layer_);
-  forget_gate_layer_.ComputeActivations();
-  
+  connection_cell_ig_.ForwardPropagate(memory_cell_layers_[0], input_gate_layer);
+  input_gate_layer.ComputeActivations();
+  connection_cell_fg_.ForwardPropagate(memory_cell_layers_[0], forget_gate_layer);
+  forget_gate_layer.ComputeActivations();
   
   // propagate input -> memory cell and last memory cell -> memory cell
   memory_cell_layers_.rotate(bptt_unfold_level_);
   neuralnet::NeuralNetIdentityLayer &current_memory_cell_layer = memory_cell_layers_[0];
   current_memory_cell_layer.ResetInputForActivations();
-  GateForwardPropagate(input_layer_, input_gate_layer_, current_memory_cell_layer);
+  GateForwardPropagate(input_layer, input_gate_layer, current_memory_cell_layer);
   // propagate forget gate -> memory cell
-  GateForwardPropagate(memory_cell_layers_[1], forget_gate_layer_, current_memory_cell_layer);
+  GateForwardPropagate(memory_cell_layers_[1], forget_gate_layer, current_memory_cell_layer);
   current_memory_cell_layer.ComputeActivations();
 
   // propagate current memory cell -> output gate cell
   // Note:: reset activations should be carried out outside the lstm cell
-  connection_cell_og_.ForwardPropagate(current_memory_cell_layer, output_gate_layer_);
-  //connection_bias_og_.ForwardPropagate(bias_layer_, output_gate_layer_);
-  output_gate_layer_.ComputeActivations();
+  connection_cell_og_.ForwardPropagate(current_memory_cell_layer, output_gate_layer);
+  output_gate_layer.ComputeActivations();
 
   // current memory cell -> mc output layer
   mc_output_layers_.ResetInputForActivations();
-  //map_connection_mc_mco_.ForwardPropagate(current_memory_cell_layer, mc_output_layers_);
   map_connection_.ForwardPropagate(current_memory_cell_layer, mc_output_layers_);
   mc_output_layers_.ComputeActivations();
 
   // current memory cell -> hidden layer
-  GateForwardPropagate(mc_output_layers_, output_gate_layer_, hidden_layer);
+  GateForwardPropagate(mc_output_layers_, output_gate_layer, hidden_layer);
 }
 
-/*
-void NeuralNetLSTMCell::ForwardPropagate(const NeuralNetLayer &pre_input, const NeuralNetLayer &pre_ig, const NeuralNetLayer &pre_og, const NeuralNetLayer &pre_fg, NeuralNetLayerBase &hidden_layer) {
-  assert(pre_input.nneurons() == num_cells_);
-  assert(pre_ig.nneurons() == num_cells_);
-  assert(pre_og.nneurons() == num_cells_);
-  assert(pre_fg.nneurons() == num_cells_);
-  assert(hidden_layer.nneurons() == num_cells_);
-  
-  input_layer_.ResetInputForActivations();
-  input_gate_layer_.ResetInputForActivations();
-  output_gate_layer_.ResetInputForActivations();
-  forget_gate_layer_.ResetInputForActivations();
-  
-  map_connection_.ForwardPropagate(pre_input, input_layer_);
-  connection_bias_input_.ForwardPropagate(bias_layer_, input_layer_);
-  input_layer_.ComputeActivations();
-
-  map_connection_.ForwardPropagate(pre_ig, input_gate_layer_);
-  connection_bias_ig_.ForwardPropagate(bias_layer_, input_gate_layer_);
-  map_connection_.ForwardPropagate(pre_og, output_gate_layer_);
-  connection_bias_og_.ForwardPropagate(bias_layer_, output_gate_layer_);
-  map_connection_.ForwardPropagate(pre_fg, forget_gate_layer_);
-  connection_bias_fg_.ForwardPropagate(bias_layer_, forget_gate_layer_);
-
-  // last memory cell -> input gate
-  connection_cell_ig_.ForwardPropagate(memory_cell_layers_[0], input_gate_layer_);
-  connection_bias_ig_.ForwardPropagate(bias_layer_, input_gate_layer_);
-  input_gate_layer_.ComputeActivations();
-  // last memory cell -> forget gate
-  connection_cell_fg_.ForwardPropagate(memory_cell_layers_[0], forget_gate_layer_);
-  connection_bias_fg_.ForwardPropagate(bias_layer_, forget_gate_layer_);
-  forget_gate_layer_.ComputeActivations();
-  // last memory cell -> output gate
-  connection_cell_og_.ForwardPropagate(memory_cell_layers_[0], output_gate_layer_);
-  connection_bias_og_.ForwardPropagate(bias_layer_, output_gate_layer_);
-  output_gate_layer_.ComputeActivations(); 
-  
-  // propagate input -> memory cell and last memory cell -> memory cell
-  memory_cell_layers_.rotate(bptt_unfold_level_);
-  neuralnet::NeuralNetIdentityLayer &current_memory_cell_layer = memory_cell_layers_[0];
-  current_memory_cell_layer.ResetInputForActivations();
-  GateForwardPropagate(input_layer_, input_gate_layer_, current_memory_cell_layer);
-  // propagate forget gate -> memory cell
-  GateForwardPropagate(memory_cell_layers_[1], forget_gate_layer_, current_memory_cell_layer);
-  current_memory_cell_layer.ComputeActivations();
-
-  // current memory cell -> mc output layer
-  mc_output_layers_.ResetInputForActivations();
-  //map_connection_mc_mco_.ForwardPropagate(current_memory_cell_layer, mc_output_layers_);
-  map_connection_.ForwardPropagate(current_memory_cell_layer, mc_output_layers_);
-  mc_output_layers_.ComputeActivations();
-
-  // current memory cell -> hidden layer
-  GateForwardPropagate(mc_output_layers_, output_gate_layer_, hidden_layer);
-}
-*/
 
 void NeuralNetLSTMCell::FastUpdateWeightsMajor(float learning_rate) {
   connection_cell_ig_.FastUpdateWeightsMajor(learning_rate);
   connection_cell_og_.FastUpdateWeightsMajor(learning_rate);
   connection_cell_fg_.FastUpdateWeightsMajor(learning_rate);
-
-  //connection_bias_ig_.FastUpdateWeightsMajor(learning_rate);
-  //connection_bias_og_.FastUpdateWeightsMajor(learning_rate);
-  //connection_bias_fg_.FastUpdateWeightsMajor(learning_rate);
 }
 
 void NeuralNetLSTMCell::FastUpdateWeightsMinor() {
   connection_cell_ig_.FastUpdateWeightsMinor();
   connection_cell_og_.FastUpdateWeightsMinor();
   connection_cell_fg_.FastUpdateWeightsMinor();
-
-  //connection_bias_ig_.FastUpdateWeightsMinor();
-  //connection_bias_og_.FastUpdateWeightsMinor();
-  //connection_bias_fg_.FastUpdateWeightsMinor();
 }
 
 void NeuralNetLSTMCell::GateBackPropagate(const NeuralNetLayerBase &output, NeuralNetLayer &input, NeuralNetLayer &input_gate) {
@@ -342,141 +223,60 @@ void NeuralNetLSTMCell::GateBackPropagate(const NeuralNetLayerBase &output, Neur
   }
 }
 
-void NeuralNetLSTMCell::BackPropagate(const NeuralNetLayerBase &hidden_layer, NeuralNetLayer &pre_input, NeuralNetLayer &pre_ig,NeuralNetLayer &pre_og, NeuralNetLayer &pre_fg) {
-  assert(pre_input.nneurons() == num_cells_);
-  assert(pre_ig.nneurons() == num_cells_);
-  assert(pre_og.nneurons() == num_cells_);
-  assert(pre_fg.nneurons() == num_cells_);
+void NeuralNetLSTMCell::BackPropagate(const NeuralNetLayerBase &hidden_layer, NeuralNetLayer &input_layer, NeuralNetLayer &input_gate_layer,NeuralNetLayer &output_gate_layer, NeuralNetLayer &forget_gate_layer) {
+  assert(input_layer.nneurons() == num_cells_);
+  assert(input_gate_layer.nneurons() == num_cells_);
+  assert(output_gate_layer.nneurons() == num_cells_);
+  assert(forget_gate_layer.nneurons() == num_cells_);
   assert(hidden_layer.nneurons() == num_cells_);
   
 
   // hidden layer -> forget gate & memory cell output layer
   mc_output_layers_.ResetInputForErrors();
-  output_gate_layer_.ResetInputForErrors();
-  GateBackPropagate(hidden_layer, mc_output_layers_, output_gate_layer_);
+  output_gate_layer.ResetInputForErrors();
+  GateBackPropagate(hidden_layer, mc_output_layers_, output_gate_layer);
   mc_output_layers_.ComputeErrors();
-  output_gate_layer_.ComputeErrors();
+  output_gate_layer.ComputeErrors();
 
   // memory cell output layer -> memory cell layer
   NeuralNetIdentityLayer &current_memory_cell_layer = memory_cell_layers_[0];
+  //NeuralNetCenteredSigmoidLayer &current_memory_cell_layer = memory_cell_layers_[0];
   current_memory_cell_layer.ResetInputForErrors();
   //map_connection_mc_mco_.BackPropagate(mc_output_layers_, current_memory_cell_layer);
   map_connection_.BackPropagate(mc_output_layers_, current_memory_cell_layer);
 
   // output gate -> memory cell
-  connection_cell_og_.BackPropagate(output_gate_layer_, current_memory_cell_layer);
+  connection_cell_og_.BackPropagate(output_gate_layer, current_memory_cell_layer);
   current_memory_cell_layer.ComputeErrors();
 
   // current memory cell -> previous memory cell & forget gate
   memory_cell_layers_[1].ResetInputForErrors();
-  forget_gate_layer_.ResetInputForErrors();
-  GateBackPropagate(current_memory_cell_layer, memory_cell_layers_[1], forget_gate_layer_);
-  forget_gate_layer_.ComputeErrors();
+  forget_gate_layer.ResetInputForErrors();
+  GateBackPropagate(current_memory_cell_layer, memory_cell_layers_[1], forget_gate_layer);
+  forget_gate_layer.ComputeErrors();
   // current memory cell -> input layer and input gate
-  input_layer_.ResetInputForErrors();
-  input_gate_layer_.ResetInputForErrors();
-  GateBackPropagate(current_memory_cell_layer, input_layer_, input_gate_layer_);
-  input_layer_.ComputeErrors();
-  input_gate_layer_.ComputeErrors();
+  input_layer.ResetInputForErrors();
+  input_gate_layer.ResetInputForErrors();
+  GateBackPropagate(current_memory_cell_layer, input_layer, input_gate_layer);
+  input_layer.ComputeErrors();
+  input_gate_layer.ComputeErrors();
 
+  /*
   // input gate layer -> previous memory cell
   connection_cell_ig_.BackPropagate(input_gate_layer_, memory_cell_layers_[1]);
   // forget gate layer -> previous memory cell
   connection_cell_fg_.BackPropagate(output_gate_layer_, memory_cell_layers_[1]);
   memory_cell_layers_[1].ComputeErrors();
+  */
 
   // Accumulate Gradients
   // TODO: ig and fg should be backpropagate with preivous memory cell
-  connection_cell_ig_.AccumulateGradients(memory_cell_layers_[1], input_gate_layer_);
-  connection_cell_og_.AccumulateGradients(output_gate_layer_, current_memory_cell_layer);
-  connection_cell_fg_.AccumulateGradients(memory_cell_layers_[1], forget_gate_layer_);
-  // bias
-  //connection_bias_input_.AccumulateGradients(bias_layer_, input_layer_);
-  //connection_bias_ig_.AccumulateGradients(bias_layer_, input_gate_layer_);
-  //connection_bias_og_.AccumulateGradients(bias_layer_, output_gate_layer_);
-  //connection_bias_fg_.AccumulateGradients(bias_layer_, forget_gate_layer_);
-  // backpropgate outside cell
-  pre_input.ResetInputForErrors();
-  pre_ig.ResetInputForErrors();
-  pre_og.ResetInputForErrors();
-  pre_fg.ResetInputForErrors();
-
-  map_connection_.BackPropagate(input_layer_, pre_input);
-  map_connection_.BackPropagate(input_gate_layer_, pre_ig);
-  map_connection_.BackPropagate(output_gate_layer_, pre_og);
-  map_connection_.BackPropagate(forget_gate_layer_, pre_fg);
-}
-
-/*
-void NeuralNetLSTMCell::BackPropagate(const NeuralNetLayerBase &hidden_layer, NeuralNetLayer &pre_input, NeuralNetLayer &pre_ig,NeuralNetLayer &pre_og, NeuralNetLayer &pre_fg) {
-  assert(pre_input.nneurons() == num_cells_);
-  assert(pre_ig.nneurons() == num_cells_);
-  assert(pre_og.nneurons() == num_cells_);
-  assert(pre_fg.nneurons() == num_cells_);
-  assert(hidden_layer.nneurons() == num_cells_);
+  connection_cell_ig_.AccumulateGradients(memory_cell_layers_[1], input_gate_layer);
+  connection_cell_fg_.AccumulateGradients(memory_cell_layers_[1], forget_gate_layer);
+  connection_cell_og_.AccumulateGradients(output_gate_layer, current_memory_cell_layer);
   
-
-  // hidden layer -> forget gate & memory cell output layer
-  mc_output_layers_.ResetInputForErrors();
-  output_gate_layer_.ResetInputForErrors();
-  GateBackPropagate(hidden_layer, mc_output_layers_, output_gate_layer_);
-  mc_output_layers_.ComputeErrors();
-  output_gate_layer_.ComputeErrors();
-
-  // memory cell output layer -> memory cell layer
-  NeuralNetIdentityLayer &current_memory_cell_layer = memory_cell_layers_[0];
-  current_memory_cell_layer.ResetInputForErrors();
-  //map_connection_mc_mco_.BackPropagate(mc_output_layers_, current_memory_cell_layer);
-  map_connection_.BackPropagate(mc_output_layers_, current_memory_cell_layer);
-  current_memory_cell_layer.ComputeErrors();
-
-
-
-  // current memory cell -> previous memory cell & forget gate
-  memory_cell_layers_[1].ResetInputForErrors();
-  forget_gate_layer_.ResetInputForErrors();
-  GateBackPropagate(current_memory_cell_layer, memory_cell_layers_[1], forget_gate_layer_);
-  forget_gate_layer_.ComputeErrors();
-  // current memory cell -> input layer and input gate
-  input_layer_.ResetInputForErrors();
-  input_gate_layer_.ResetInputForErrors();
-  GateBackPropagate(current_memory_cell_layer, input_layer_, input_gate_layer_);
-  input_layer_.ComputeErrors();
-  input_gate_layer_.ComputeErrors();
-
-  // input gate layer -> previous memory cell
-  connection_cell_ig_.BackPropagate(input_gate_layer_, memory_cell_layers_[1]);
-  // output gate -> memory cell
-  connection_cell_og_.BackPropagate(output_gate_layer_, memory_cell_layers_[1]);
-  // forget gate layer -> previous memory cell
-  connection_cell_fg_.BackPropagate(output_gate_layer_, memory_cell_layers_[1]);
-  memory_cell_layers_[1].ComputeErrors();
-
-  // Accumulate Gradients
-  // TODO: ig and fg should be backpropagate with preivous memory cell
-  //connection_cell_ig_.AccumulateGradients(input_gate_layer_, current_memory_cell_layer);
-  //connection_cell_og_.AccumulateGradients(output_gate_layer_, current_memory_cell_layer);
-  //connection_cell_fg_.AccumulateGradients(forget_gate_layer_, current_memory_cell_layer);
-  connection_cell_ig_.AccumulateGradients(memory_cell_layers_[1], input_gate_layer_);
-  connection_cell_og_.AccumulateGradients(memory_cell_layers_[1], output_gate_layer_);
-  connection_cell_fg_.AccumulateGradients(memory_cell_layers_[1], forget_gate_layer_);
-  // bias
-  connection_bias_input_.AccumulateGradients(bias_layer_, input_layer_);
-  connection_bias_ig_.AccumulateGradients(bias_layer_, input_gate_layer_);
-  connection_bias_og_.AccumulateGradients(bias_layer_, output_gate_layer_);
-  connection_bias_fg_.AccumulateGradients(bias_layer_, forget_gate_layer_);
-  // backpropgate outside cell
-  pre_input.ResetInputForErrors();
-  pre_ig.ResetInputForErrors();
-  pre_og.ResetInputForErrors();
-  pre_fg.ResetInputForErrors();
-
-  map_connection_.BackPropagate(input_layer_, pre_input);
-  map_connection_.BackPropagate(input_gate_layer_, pre_ig);
-  map_connection_.BackPropagate(output_gate_layer_, pre_og);
-  map_connection_.BackPropagate(forget_gate_layer_, pre_fg);
 }
-*/
+
 
 void NeuralNetLSTMCell::ReadCell(ifstream &ifs) {
   cout << "============================" << endl;
@@ -497,9 +297,6 @@ void NeuralNetLSTMCell::ReadCell(ifstream &ifs) {
   connection_cell_og_.ReadConnection(ifs);
   connection_cell_fg_.ReadConnection(ifs);
 
-  //connection_bias_ig_.ReadConnection(ifs);
-  //connection_bias_og_.ReadConnection(ifs);
-  //connection_bias_fg_.ReadConnection(ifs);
 }
 
 void NeuralNetLSTMCell::WriteCell(ofstream &ofs) {
@@ -512,15 +309,10 @@ void NeuralNetLSTMCell::WriteCell(ofstream &ofs) {
   connection_cell_og_.WriteConnection(ofs);
   connection_cell_fg_.WriteConnection(ofs);
 
-  //connection_bias_ig_.WriteConnection(ofs);
-  //connection_bias_og_.WriteConnection(ofs);
-  //connection_bias_fg_.WriteConnection(ofs);
-
 }
 
 void NeuralNetLSTMCell::PrintParams() {
   // TODO
-  cout << "LSTM memory size: " << num_cells_ << endl;
 }
 
 void NeuralNetLSTMCell::CheckParams() {
@@ -543,11 +335,6 @@ void NeuralNetLSTMCell::CacheCurrentParams() {
   last_connection_cell_ig_ = connection_cell_ig_;
   last_connection_cell_og_ = connection_cell_og_;
   last_connection_cell_fg_ = connection_cell_fg_;
-
-  //last_connection_bias_input_ = connection_bias_input_;
-  //last_connection_bias_ig_ = connection_bias_ig_;
-  //last_connection_bias_og_ = connection_bias_og_;
-  //last_connection_bias_fg_ = connection_bias_fg_;
   // Note: it is not clear whether the memory cells have to be cached as well.
 }
 
@@ -555,11 +342,6 @@ void NeuralNetLSTMCell::RestoreLastParams() {
   connection_cell_ig_ = last_connection_cell_ig_;
   connection_cell_og_ = last_connection_cell_og_;
   connection_cell_fg_ = last_connection_cell_fg_;
-
-  //connection_bias_input_ = last_connection_bias_input_;
-  //connection_bias_ig_ = last_connection_bias_ig_;
-  //connection_bias_og_ = last_connection_bias_og_;
-  //connection_bias_fg_ = last_connection_bias_fg_;
 }
 
 } // namespace nnlm

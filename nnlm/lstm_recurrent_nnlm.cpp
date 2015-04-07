@@ -230,20 +230,46 @@ void LSTMRecurrentNeuralNetLM::AllocateModel() {
     hidden_layers_[i].set_errorinput_cutoff(errorinput_cutoff());
   }
 
-  pre_cell_in_layer_.set_nneurons(num_hiddens_, false, false);
-  pre_cell_in_layer_.set_errorinput_cutoff(errorinput_cutoff());
-  pre_cell_ig_layer_.set_nneurons(num_hiddens_, false, false);
-  pre_cell_ig_layer_.set_errorinput_cutoff(errorinput_cutoff());
-  pre_cell_og_layer_.set_nneurons(num_hiddens_, false, false);
-  pre_cell_og_layer_.set_errorinput_cutoff(errorinput_cutoff());
-  pre_cell_fg_layer_.set_nneurons(num_hiddens_, false, false);
-  pre_cell_fg_layer_.set_errorinput_cutoff(errorinput_cutoff());
+  pre_cell_in_layers_.set_capacity(bptt_unfold_level_ + 1);
+  for (size_t i = 0; i < bptt_unfold_level_ + 1; i++) {
+    pre_cell_in_layers_[i].set_nneurons(num_hiddens_, false, false);
+    pre_cell_in_layers_[i].set_errorinput_cutoff(errorinput_cutoff());
+  }
+  pre_cell_ig_layers_.set_capacity(bptt_unfold_level_ + 1);
+  for (size_t i = 0; i < bptt_unfold_level_ + 1; i++) {
+    pre_cell_ig_layers_[i].set_nneurons(num_hiddens_, false, false);
+    pre_cell_ig_layers_[i].set_errorinput_cutoff(errorinput_cutoff());
+  }
+  pre_cell_og_layers_.set_capacity(bptt_unfold_level_ + 1);
+  for (size_t i = 0; i < bptt_unfold_level_ + 1; i++) {
+    pre_cell_og_layers_[i].set_nneurons(num_hiddens_, false, false);
+    pre_cell_og_layers_[i].set_errorinput_cutoff(errorinput_cutoff());
+  }
+  pre_cell_fg_layers_.set_capacity(bptt_unfold_level_ + 1);
+  for (size_t i = 0; i < bptt_unfold_level_ + 1; i++) {
+    pre_cell_fg_layers_[i].set_nneurons(num_hiddens_, false, false);
+    pre_cell_fg_layers_[i].set_errorinput_cutoff(errorinput_cutoff());
+  }
+  //pre_cell_in_layer_.set_nneurons(num_hiddens_, false, false);
+  //pre_cell_in_layer_.set_errorinput_cutoff(errorinput_cutoff());
+  //pre_cell_ig_layer_.set_nneurons(num_hiddens_, false, false);
+  //pre_cell_ig_layer_.set_errorinput_cutoff(errorinput_cutoff());
+  //pre_cell_og_layer_.set_nneurons(num_hiddens_, false, false);
+  //pre_cell_og_layer_.set_errorinput_cutoff(errorinput_cutoff());
+  //pre_cell_fg_layer_.set_nneurons(num_hiddens_, false, false);
+  //pre_cell_fg_layer_.set_errorinput_cutoff(errorinput_cutoff());
 
   lstm_cells_.set_ncells(num_hiddens_);
   lstm_cells_.set_errorinput_cutoff(errorinput_cutoff());
   lstm_cells_.set_adagrad(adagrad());
   lstm_cells_.set_l2_regularization_param(l2_regularization_param());
   lstm_cells_.AllocateModel();
+
+  last_lstm_cells_.set_ncells(num_hiddens_);
+  last_lstm_cells_.set_errorinput_cutoff(errorinput_cutoff());
+  last_lstm_cells_.set_adagrad(adagrad());
+  last_lstm_cells_.set_l2_regularization_param(l2_regularization_param());
+  last_lstm_cells_.AllocateModel();
 
   if (nce()) {
     nce_output_layer_.set_nneurons(vocab().size(), false, true);
@@ -412,11 +438,24 @@ void LSTMRecurrentNeuralNetLM::ResetActivations() {
     hidden_layers_[i].SetActivationsToValue(0.0f);
   }
 
+  for (size_t i = 0; i < bptt_unfold_level_ + 1; i++) {
+    pre_cell_in_layers_[i].SetActivationsToValue(0.0f);
+  }
+  for (size_t i = 0; i < bptt_unfold_level_ + 1; i++) {
+    pre_cell_ig_layers_[i].SetActivationsToValue(0.0f);
+  }
+  for (size_t i = 0; i < bptt_unfold_level_ + 1; i++) {
+    pre_cell_og_layers_[i].SetActivationsToValue(0.0f);
+  }
+  for (size_t i = 0; i < bptt_unfold_level_ + 1; i++) {
+    pre_cell_fg_layers_[i].SetActivationsToValue(0.0f);
+  }
+
   // Initialize the lstm cell
-  pre_cell_in_layer_.SetActivationsToValue(0.0f);
-  pre_cell_ig_layer_.SetActivationsToValue(0.0f);
-  pre_cell_og_layer_.SetActivationsToValue(0.0f);
-  pre_cell_fg_layer_.SetActivationsToValue(0.0f);
+  //pre_cell_in_layer_.SetActivationsToValue(0.0f);
+  //pre_cell_ig_layer_.SetActivationsToValue(0.0f);
+  //pre_cell_og_layer_.SetActivationsToValue(0.0f);
+  //pre_cell_fg_layer_.SetActivationsToValue(0.0f);
   lstm_cells_.ResetActivations();
 
 
@@ -453,7 +492,8 @@ void LSTMRecurrentNeuralNetLM::CacheCurrentParams() {
   last_connection_hidden_output_ = connection_hidden_output_;
 
   // Note: not sure it is the right way
-  lstm_cells_.CacheCurrentParams();
+  //lstm_cells_.CacheCurrentParams();
+  last_lstm_cells_ = lstm_cells_;
 
   if (globalbias()) {
     last_connection_globalbias_output_ = connection_globalbias_output_;
@@ -483,7 +523,8 @@ void LSTMRecurrentNeuralNetLM::RestoreLastParams() {
 
   connection_hidden_output_ = last_connection_hidden_output_;
 
-  lstm_cells_.RestoreLastParams();
+  //lstm_cells_.RestoreLastParams();
+  last_lstm_cells_ = lstm_cells_;
 
   if (globalbias()) {
     connection_globalbias_output_ = last_connection_globalbias_output_;
@@ -542,25 +583,36 @@ void LSTMRecurrentNeuralNetLM::ForwardPropagate(size_t w) {
   //connection_input_hidden_.ForwardPropagate(current_input_layer, current_hidden_layer);
   //current_hidden_layer.ComputeActivations();
   // input -> pre cell layes
-  pre_cell_in_layer_.ResetInputForActivations();
-  pre_cell_ig_layer_.ResetInputForActivations();
-  pre_cell_og_layer_.ResetInputForActivations();
-  pre_cell_fg_layer_.ResetInputForActivations();
-  connection_input_mc_in_.ForwardPropagate(current_input_layer, pre_cell_in_layer_);
-  connection_input_mc_ig_.ForwardPropagate(current_input_layer, pre_cell_ig_layer_);
-  connection_input_mc_og_.ForwardPropagate(current_input_layer, pre_cell_og_layer_);
-  connection_input_mc_fg_.ForwardPropagate(current_input_layer, pre_cell_fg_layer_);
-  // recurrenthidden -> pre cell layers
-  connection_recurrenthidden_mc_in_.ForwardPropagate(hidden_layers_[1], pre_cell_in_layer_);
-  connection_recurrenthidden_mc_ig_.ForwardPropagate(hidden_layers_[1], pre_cell_ig_layer_);
-  connection_recurrenthidden_mc_og_.ForwardPropagate(hidden_layers_[1], pre_cell_og_layer_);
-  connection_recurrenthidden_mc_fg_.ForwardPropagate(hidden_layers_[1], pre_cell_fg_layer_);
-  pre_cell_in_layer_.ComputeActivations();
-  pre_cell_ig_layer_.ComputeActivations();
-  pre_cell_og_layer_.ComputeActivations();
-  pre_cell_fg_layer_.ComputeActivations();
+  pre_cell_in_layers_.rotate(bptt_unfold_level_);
+  pre_cell_ig_layers_.rotate(bptt_unfold_level_);
+  pre_cell_og_layers_.rotate(bptt_unfold_level_);
+  pre_cell_fg_layers_.rotate(bptt_unfold_level_);
+  
+  neuralnet::NeuralNetSigmoidLayer &current_pre_cell_in_layer = pre_cell_in_layers_[0]; 
+  neuralnet::NeuralNetSigmoidLayer &current_pre_cell_ig_layer = pre_cell_ig_layers_[0];
+  neuralnet::NeuralNetSigmoidLayer &current_pre_cell_og_layer = pre_cell_og_layers_[0];
+  neuralnet::NeuralNetSigmoidLayer &current_pre_cell_fg_layer = pre_cell_fg_layers_[0];
 
-  lstm_cells_.ForwardPropagate(pre_cell_in_layer_, pre_cell_ig_layer_, pre_cell_og_layer_, pre_cell_fg_layer_, current_hidden_layer);
+  current_pre_cell_in_layer.ResetInputForActivations();
+  current_pre_cell_ig_layer.ResetInputForActivations();
+  current_pre_cell_og_layer.ResetInputForActivations();
+  current_pre_cell_fg_layer.ResetInputForActivations();
+  connection_input_mc_in_.ForwardPropagate(current_input_layer, current_pre_cell_in_layer);
+  connection_input_mc_ig_.ForwardPropagate(current_input_layer, current_pre_cell_ig_layer);
+  connection_input_mc_og_.ForwardPropagate(current_input_layer, current_pre_cell_og_layer);
+  connection_input_mc_fg_.ForwardPropagate(current_input_layer, current_pre_cell_fg_layer);
+  // recurrenthidden -> pre cell layers
+  connection_recurrenthidden_mc_in_.ForwardPropagate(hidden_layers_[1], current_pre_cell_in_layer);
+  connection_recurrenthidden_mc_ig_.ForwardPropagate(hidden_layers_[1], current_pre_cell_ig_layer);
+  connection_recurrenthidden_mc_og_.ForwardPropagate(hidden_layers_[1], current_pre_cell_og_layer);
+  connection_recurrenthidden_mc_fg_.ForwardPropagate(hidden_layers_[1], current_pre_cell_fg_layer);
+  // compute activation in the lstm cell
+  //current_pre_cell_in_layer.ComputeActivations();
+  //current_pre_cell_ig_layer.ComputeActivations();
+  //current_pre_cell_og_layer.ComputeActivations();
+  //current_pre_cell_fg_layer.ComputeActivations();
+
+  lstm_cells_.ForwardPropagate(current_pre_cell_in_layer, current_pre_cell_ig_layer, current_pre_cell_og_layer, current_pre_cell_fg_layer, current_hidden_layer);
 
   current_hidden_layer.ComputeActivations();
   
@@ -669,18 +721,23 @@ void LSTMRecurrentNeuralNetLM::BackPropagate(size_t w) {
     }
     current_hidden_layer.ComputeErrors();
 
-    lstm_cells_.BackPropagate(current_hidden_layer, pre_cell_in_layer_, pre_cell_ig_layer_, pre_cell_og_layer_, pre_cell_fg_layer_);
-    pre_cell_in_layer_.ComputeErrors();
-    pre_cell_ig_layer_.ComputeErrors();
-    pre_cell_og_layer_.ComputeErrors();
-    pre_cell_fg_layer_.ComputeErrors();
+    neuralnet::NeuralNetSigmoidLayer &current_pre_cell_in_layer = pre_cell_in_layers_[0]; 
+    neuralnet::NeuralNetSigmoidLayer &current_pre_cell_ig_layer = pre_cell_ig_layers_[0];
+    neuralnet::NeuralNetSigmoidLayer &current_pre_cell_og_layer = pre_cell_og_layers_[0];
+    neuralnet::NeuralNetSigmoidLayer &current_pre_cell_fg_layer = pre_cell_fg_layers_[0];
+
+    lstm_cells_.BackPropagate(current_hidden_layer, current_pre_cell_in_layer, current_pre_cell_ig_layer, current_pre_cell_og_layer, current_pre_cell_fg_layer);
+    //current_pre_cell_in_layer.ComputeErrors();
+    //current_pre_cell_ig_layer.ComputeErrors();
+    //current_pre_cell_og_layer.ComputeErrors();
+    //current_pre_cell_fg_layer.ComputeErrors();
     // no need to back-propagate error to the oldest hidden layers
     for (size_t i = 1; i < bptt_unfold_level_; i++) {
       hidden_layers_[i].ResetInputForErrors();
-      connection_recurrenthidden_mc_in_.BackPropagate(pre_cell_in_layer_, hidden_layers_[i]);
-      connection_recurrenthidden_mc_ig_.BackPropagate(pre_cell_ig_layer_, hidden_layers_[i]);
-      connection_recurrenthidden_mc_og_.BackPropagate(pre_cell_og_layer_, hidden_layers_[i]);
-      connection_recurrenthidden_mc_fg_.BackPropagate(pre_cell_fg_layer_, hidden_layers_[i]);
+      connection_recurrenthidden_mc_in_.BackPropagate(pre_cell_in_layers_[i-1], hidden_layers_[i]);
+      connection_recurrenthidden_mc_ig_.BackPropagate(pre_cell_ig_layers_[i-1], hidden_layers_[i]);
+      connection_recurrenthidden_mc_og_.BackPropagate(pre_cell_og_layers_[i-1], hidden_layers_[i]);
+      connection_recurrenthidden_mc_fg_.BackPropagate(pre_cell_fg_layers_[i-1], hidden_layers_[i]);
       hidden_layers_[i].ComputeErrors();
     }
 
@@ -727,18 +784,28 @@ void LSTMRecurrentNeuralNetLM::BackPropagate(size_t w) {
     connection_hidden_output_.BackPropagate(output_layer_, current_hidden_layer);
     current_hidden_layer.ComputeErrors();
 
-    lstm_cells_.BackPropagate(current_hidden_layer, pre_cell_in_layer_, pre_cell_ig_layer_, pre_cell_og_layer_, pre_cell_fg_layer_);
-    pre_cell_in_layer_.ComputeErrors();
-    pre_cell_ig_layer_.ComputeErrors();
-    pre_cell_og_layer_.ComputeErrors();
-    pre_cell_fg_layer_.ComputeErrors();
+    neuralnet::NeuralNetSigmoidLayer &current_pre_cell_in_layer = pre_cell_in_layers_[0]; 
+    neuralnet::NeuralNetSigmoidLayer &current_pre_cell_ig_layer = pre_cell_ig_layers_[0];
+    neuralnet::NeuralNetSigmoidLayer &current_pre_cell_og_layer = pre_cell_og_layers_[0];
+    neuralnet::NeuralNetSigmoidLayer &current_pre_cell_fg_layer = pre_cell_fg_layers_[0];
+
+    //current_pre_cell_in_layer.ResetInputForErrors();
+    //current_pre_cell_ig_layer.ResetInputForErrors();
+    //current_pre_cell_og_layer.ResetInputForErrors();
+    //current_pre_cell_fg_layer.ResetInputForErrors();
+    lstm_cells_.BackPropagate(current_hidden_layer, current_pre_cell_in_layer, current_pre_cell_ig_layer, current_pre_cell_og_layer, current_pre_cell_fg_layer);
+    //current_pre_cell_in_layer.ComputeErrors();
+    //current_pre_cell_ig_layer.ComputeErrors();
+    //current_pre_cell_og_layer.ComputeErrors();
+    //current_pre_cell_fg_layer.ComputeErrors();
+
     // no need to back-propagate error to the oldest hidden layers
     for (size_t i = 1; i < bptt_unfold_level_; i++) {
       hidden_layers_[i].ResetInputForErrors();
-      connection_recurrenthidden_mc_in_.BackPropagate(pre_cell_in_layer_, hidden_layers_[i]);
-      connection_recurrenthidden_mc_ig_.BackPropagate(pre_cell_ig_layer_, hidden_layers_[i]);
-      connection_recurrenthidden_mc_og_.BackPropagate(pre_cell_og_layer_, hidden_layers_[i]);
-      connection_recurrenthidden_mc_fg_.BackPropagate(pre_cell_fg_layer_, hidden_layers_[i]);
+      connection_recurrenthidden_mc_in_.BackPropagate(pre_cell_in_layers_[i-1], hidden_layers_[i]);
+      connection_recurrenthidden_mc_ig_.BackPropagate(pre_cell_ig_layers_[i-1], hidden_layers_[i]);
+      connection_recurrenthidden_mc_og_.BackPropagate(pre_cell_og_layers_[i-1], hidden_layers_[i]);
+      connection_recurrenthidden_mc_fg_.BackPropagate(pre_cell_fg_layers_[i-1], hidden_layers_[i]);
       hidden_layers_[i].ComputeErrors();
     }
 
@@ -768,19 +835,19 @@ void LSTMRecurrentNeuralNetLM::BackPropagate(size_t w) {
 
   for (size_t i = 0; i < bptt_unfold_level_; i++) {
     //connection_recurrenthidden_.AccumulateGradients(hidden_layers_[i+1], hidden_layers_[i]);
-    connection_recurrenthidden_mc_in_.AccumulateGradients(hidden_layers_[i], pre_cell_in_layer_);
-    connection_recurrenthidden_mc_ig_.AccumulateGradients(hidden_layers_[i], pre_cell_ig_layer_);
-    connection_recurrenthidden_mc_og_.AccumulateGradients(hidden_layers_[i], pre_cell_og_layer_);
-    connection_recurrenthidden_mc_fg_.AccumulateGradients(hidden_layers_[i], pre_cell_fg_layer_);
+    connection_recurrenthidden_mc_in_.AccumulateGradients(hidden_layers_[i+1], pre_cell_in_layers_[i]);
+    connection_recurrenthidden_mc_ig_.AccumulateGradients(hidden_layers_[i+1], pre_cell_ig_layers_[i]);
+    connection_recurrenthidden_mc_og_.AccumulateGradients(hidden_layers_[i+1], pre_cell_og_layers_[i]);
+    connection_recurrenthidden_mc_fg_.AccumulateGradients(hidden_layers_[i+1], pre_cell_fg_layers_[i]);
   }
   
   for (size_t i = 0; i < bptt_unfold_level_; i++) {
     //connection_input_hidden_.AccumulateGradients(input_layers_[i],
     //                                             hidden_layers_[i]);
-    connection_input_mc_in_.AccumulateGradients(input_layers_[i], pre_cell_in_layer_);
-    connection_input_mc_ig_.AccumulateGradients(input_layers_[i], pre_cell_ig_layer_);
-    connection_input_mc_og_.AccumulateGradients(input_layers_[i], pre_cell_og_layer_);
-    connection_input_mc_fg_.AccumulateGradients(input_layers_[i], pre_cell_fg_layer_);
+    connection_input_mc_in_.AccumulateGradients(input_layers_[i], pre_cell_in_layers_[i]);
+    connection_input_mc_ig_.AccumulateGradients(input_layers_[i], pre_cell_ig_layers_[i]);
+    connection_input_mc_og_.AccumulateGradients(input_layers_[i], pre_cell_og_layers_[i]);
+    connection_input_mc_fg_.AccumulateGradients(input_layers_[i], pre_cell_fg_layers_[i]);
   }
 }
 

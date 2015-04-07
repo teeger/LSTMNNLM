@@ -72,12 +72,10 @@ class NeuralNetLSTMCell {
   void RestoreLastParams();
   // Forward propagates.
   void GateForwardPropagate(const NeuralNetLayer &input, const NeuralNetLayer &gate_input, NeuralNetLayerBase &output);
-  //void ForwardPropagate(const NeuralNetLayer &input, const NeuralNetLayer &hidden_layer);
-  void ForwardPropagate(const NeuralNetLayer &pre_input, const NeuralNetLayer &pre_ig, const NeuralNetLayer &pre_og, const NeuralNetLayer &pre_fg, NeuralNetLayerBase &hidden_layer);
+  void ForwardPropagate(NeuralNetLayer &input_layer, NeuralNetLayer &input_gate_layer, NeuralNetLayer &output_gate_layer, NeuralNetLayer &forget_gate_layer, NeuralNetLayerBase &hidden_layer); 
   // Back propagates.
   void GateBackPropagate(const NeuralNetLayerBase &output, NeuralNetLayer &input, NeuralNetLayer &input_gate);
-  //void BackPropagate(const NeuralNetLayerBase &hidden_layer, NeuralNetLayerBase &input);
-  void BackPropagate(const NeuralNetLayerBase &hidden_layer, NeuralNetLayer &pre_input, NeuralNetLayer &pre_ig,NeuralNetLayer &pre_og, NeuralNetLayer &pre_fg); 
+  void BackPropagate(const NeuralNetLayerBase &hidden_layer, NeuralNetLayer &input_layer, NeuralNetLayer &input_gate_layer,NeuralNetLayer &output_gate_layer, NeuralNetLayer &forget_gate_layer); 
   // Updates the connections (fast update trick). 
   void FastUpdateWeightsMajor(float learning_rate);
   void FastUpdateWeightsMinor();
@@ -98,10 +96,10 @@ class NeuralNetLSTMCell {
   boost::mt19937 rng_engine_;
 
   neuralnet::FullCircularBuffer<neuralnet::NeuralNetIdentityLayer> memory_cell_layers_;
-  neuralnet::NeuralNetSigmoidLayer input_gate_layer_;
-  neuralnet::NeuralNetSigmoidLayer output_gate_layer_;
-  neuralnet::NeuralNetSigmoidLayer forget_gate_layer_;
-  neuralnet::NeuralNetCenteredSigmoidLayer input_layer_;
+  //neuralnet::NeuralNetSigmoidLayer input_gate_layer_;
+  //neuralnet::NeuralNetSigmoidLayer output_gate_layer_;
+  //neuralnet::NeuralNetSigmoidLayer forget_gate_layer_;
+  //neuralnet::NeuralNetCenteredSigmoidLayer input_layer_;
   neuralnet::NeuralNetCenteredSigmoidLayer mc_output_layers_;
   //neuralnet::NeuralNetIdentityLayer mc_output_layers_;
 
@@ -109,13 +107,7 @@ class NeuralNetLSTMCell {
   neuralnet::NeuralNetConnection connection_cell_og_, last_connection_cell_og_;
   neuralnet::NeuralNetConnection connection_cell_fg_, last_connection_cell_fg_;
 
-  //neuralnet::NeuralNetMapConnection map_connection_mc_mco_;
   neuralnet::NeuralNetMapConnection map_connection_;
-  neuralnet::NeuralNetSparseLayer bias_layer_;
-  neuralnet::NeuralNetConnection connection_bias_input_, last_connection_bias_input_;
-  neuralnet::NeuralNetConnection connection_bias_ig_, last_connection_bias_ig_;
-  neuralnet::NeuralNetConnection connection_bias_og_, last_connection_bias_og_;
-  neuralnet::NeuralNetConnection connection_bias_fg_, last_connection_bias_fg_;
 
   //===================================
   // General training parameters
