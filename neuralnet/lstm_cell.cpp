@@ -240,7 +240,7 @@ void NeuralNetLSTMCell::BackPropagate(const NeuralNetLayerBase &hidden_layer, Ne
 
   // memory cell output layer -> memory cell layer
   NeuralNetIdentityLayer &current_memory_cell_layer = memory_cell_layers_[0];
-  //NeuralNetCenteredSigmoidLayer &current_memory_cell_layer = memory_cell_layers_[0];
+  //NeuralNetTanhLayer &current_memory_cell_layer = memory_cell_layers_[0];
   current_memory_cell_layer.ResetInputForErrors();
   //map_connection_mc_mco_.BackPropagate(mc_output_layers_, current_memory_cell_layer);
   map_connection_.BackPropagate(mc_output_layers_, current_memory_cell_layer);
@@ -273,7 +273,7 @@ void NeuralNetLSTMCell::BackPropagate(const NeuralNetLayerBase &hidden_layer, Ne
   // TODO: ig and fg should be backpropagate with preivous memory cell
   connection_cell_ig_.AccumulateGradients(memory_cell_layers_[1], input_gate_layer);
   connection_cell_fg_.AccumulateGradients(memory_cell_layers_[1], forget_gate_layer);
-  connection_cell_og_.AccumulateGradients(output_gate_layer, current_memory_cell_layer);
+  connection_cell_og_.AccumulateGradients(current_memory_cell_layer, output_gate_layer);
   
 }
 

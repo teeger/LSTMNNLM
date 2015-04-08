@@ -12,6 +12,7 @@
 #include "../neuralnet/neuralnet_shared_connection.h"
 #include "../neuralnet/neuralnet_sparse_layer.h"
 #include "../neuralnet/neuralnet_sigmoid_layer.h"
+#include "../neuralnet/neuralnet_tanh_layer.h"
 #include "../neuralnet/neuralnet_softmax_layer.h"
 #include "../neuralnet/neuralnet_exp_layer.h"
 #include "../neuralnet/neuralnet_identity_layer.h"
@@ -96,7 +97,7 @@ class LSTMRecurrentNeuralNetLM : public NeuralNetLMBase {
 
   neuralnet::FullCircularBuffer<neuralnet::NeuralNetSparseLayer> input_layers_;
   neuralnet::NeuralNetLSTMCell lstm_cells_, last_lstm_cells_;
-  neuralnet::FullCircularBuffer<neuralnet::NeuralNetSigmoidLayer> pre_cell_in_layers_;
+  neuralnet::FullCircularBuffer<neuralnet::NeuralNetTanhLayer> pre_cell_in_layers_;
   neuralnet::FullCircularBuffer<neuralnet::NeuralNetSigmoidLayer> pre_cell_ig_layers_;
   neuralnet::FullCircularBuffer<neuralnet::NeuralNetSigmoidLayer> pre_cell_og_layers_;
   neuralnet::FullCircularBuffer<neuralnet::NeuralNetSigmoidLayer> pre_cell_fg_layers_;
@@ -120,6 +121,10 @@ class LSTMRecurrentNeuralNetLM : public NeuralNetLMBase {
   neuralnet::NeuralNetConnection connection_recurrenthidden_mc_og_, last_connection_recurrenthidden_mc_og_;
   neuralnet::NeuralNetConnection connection_recurrenthidden_mc_fg_, last_connection_recurrenthidden_mc_fg_;
   // TODO: currently no bias for inputs to memory cells
+  neuralnet::NeuralNetSharedConnection connection_globalbias_in_, last_connection_globalbias_in_;
+  neuralnet::NeuralNetSharedConnection connection_globalbias_ig_, last_connection_globalbias_ig_;
+  neuralnet::NeuralNetSharedConnection connection_globalbias_og_, last_connection_globalbias_og_;
+  neuralnet::NeuralNetSharedConnection connection_globalbias_fg_, last_connection_globalbias_fg_;
 
   neuralnet::NeuralNetConnection connection_hidden_output_, last_connection_hidden_output_;
 

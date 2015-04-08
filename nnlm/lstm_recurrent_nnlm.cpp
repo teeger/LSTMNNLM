@@ -77,6 +77,11 @@ void LSTMRecurrentNeuralNetLM::ReadLMImpl(ifstream &ifs) {
   connection_recurrenthidden_mc_og_.ReadConnection(ifs);
   connection_recurrenthidden_mc_fg_.ReadConnection(ifs);
 
+  connection_globalbias_in_.ReadConnection(ifs);
+  connection_globalbias_ig_.ReadConnection(ifs);
+  connection_globalbias_og_.ReadConnection(ifs);
+  connection_globalbias_fg_.ReadConnection(ifs);
+
   connection_hidden_output_.ReadConnection(ifs);
   lstm_cells_.ReadCell(ifs);
   
@@ -111,6 +116,11 @@ void LSTMRecurrentNeuralNetLM::WriteLMImpl(ofstream &ofs) {
   connection_recurrenthidden_mc_ig_.WriteConnection(ofs);
   connection_recurrenthidden_mc_og_.WriteConnection(ofs);
   connection_recurrenthidden_mc_fg_.WriteConnection(ofs);
+
+  connection_globalbias_in_.WriteConnection(ofs);
+  connection_globalbias_ig_.WriteConnection(ofs);
+  connection_globalbias_og_.WriteConnection(ofs);
+  connection_globalbias_fg_.WriteConnection(ofs);
 
   connection_hidden_output_.WriteConnection(ofs);
   lstm_cells_.WriteCell(ofs);
@@ -342,6 +352,33 @@ void LSTMRecurrentNeuralNetLM::AllocateModel() {
   last_connection_recurrenthidden_mc_og_.set_l2_regularization_param(l2_regularization_param());
   last_connection_recurrenthidden_mc_fg_.set_l2_regularization_param(l2_regularization_param());
 
+  connection_globalbias_in_.set_dims(true, 1, num_hiddens_);
+  connection_globalbias_ig_.set_dims(true, 1, num_hiddens_);
+  connection_globalbias_og_.set_dims(true, 1, num_hiddens_);
+  connection_globalbias_fg_.set_dims(true, 1, num_hiddens_);
+  connection_globalbias_in_.set_adagrad(adagrad());
+  connection_globalbias_ig_.set_adagrad(adagrad());
+  connection_globalbias_og_.set_adagrad(adagrad());
+  connection_globalbias_fg_.set_adagrad(adagrad());
+  // do not penalize bias term here
+  connection_globalbias_in_.set_l2_regularization_param(0.f);
+  connection_globalbias_ig_.set_l2_regularization_param(0.f);
+  connection_globalbias_og_.set_l2_regularization_param(0.f);
+  connection_globalbias_fg_.set_l2_regularization_param(0.f);
+
+  last_connection_globalbias_in_.set_dims(true, 1, num_hiddens_);
+  last_connection_globalbias_ig_.set_dims(true, 1, num_hiddens_);
+  last_connection_globalbias_og_.set_dims(true, 1, num_hiddens_);
+  last_connection_globalbias_fg_.set_dims(true, 1, num_hiddens_);
+  last_connection_globalbias_in_.set_adagrad(adagrad());
+  last_connection_globalbias_ig_.set_adagrad(adagrad());
+  last_connection_globalbias_og_.set_adagrad(adagrad());
+  last_connection_globalbias_fg_.set_adagrad(adagrad());
+  // do not penalize bias term here
+  last_connection_globalbias_in_.set_l2_regularization_param(0.f);
+  last_connection_globalbias_ig_.set_l2_regularization_param(0.f);
+  last_connection_globalbias_og_.set_l2_regularization_param(0.f);
+  last_connection_globalbias_fg_.set_l2_regularization_param(0.f);
   if (nce()) {
     connection_hidden_output_.set_dims(false, num_hiddens_, vocab().size());
     last_connection_hidden_output_.set_dims(false, num_hiddens_, vocab().size());
@@ -356,11 +393,13 @@ void LSTMRecurrentNeuralNetLM::AllocateModel() {
   connection_hidden_output_.set_l2_regularization_param(l2_regularization_param());
   last_connection_hidden_output_.set_l2_regularization_param(l2_regularization_param());
 
-  if (globalbias() || bias()) {
-    // Remember to set activation to 1.
-    bias_layer_.set_nneurons(1, true, false);
-    bias_layer_.SetActivationsToValue(1.0);
-  }
+  bias_layer_.set_nneurons(1, true, false);
+  bias_layer_.SetActivationsToValue(1.0);
+  //if (globalbias() || bias()) {
+  //  // Remember to set activation to 1.
+  //  bias_layer_.set_nneurons(1, true, false);
+  //  bias_layer_.SetActivationsToValue(1.0);
+  //}
   if (globalbias()) {
     connection_globalbias_output_.set_dims(true, 1, vocab().size());
     last_connection_globalbias_output_.set_dims(true, 1, vocab().size());
@@ -401,6 +440,7 @@ void LSTMRecurrentNeuralNetLM::InitializeNeuralNet() {
   // Reset activations.
   ResetActivations();
 
+  //lstm_cells_.ResetActivations();
   lstm_cells_.InitializeCell();
 
   // Randomly initialize connections.
@@ -488,6 +528,10 @@ void LSTMRecurrentNeuralNetLM::CacheCurrentParams() {
   last_connection_recurrenthidden_mc_og_ = connection_recurrenthidden_mc_og_;
   last_connection_recurrenthidden_mc_fg_ = connection_recurrenthidden_mc_fg_;
 
+  last_connection_globalbias_in_ = connection_globalbias_in_;
+  last_connection_globalbias_ig_ = connection_globalbias_ig_;
+  last_connection_globalbias_og_ = connection_globalbias_og_;
+  last_connection_globalbias_fg_ = connection_globalbias_fg_;
 
   last_connection_hidden_output_ = connection_hidden_output_;
 
@@ -520,6 +564,11 @@ void LSTMRecurrentNeuralNetLM::RestoreLastParams() {
   connection_recurrenthidden_mc_ig_ = last_connection_recurrenthidden_mc_ig_;
   connection_recurrenthidden_mc_og_ = last_connection_recurrenthidden_mc_og_;
   connection_recurrenthidden_mc_fg_ = last_connection_recurrenthidden_mc_fg_;
+
+  connection_globalbias_in_ = last_connection_globalbias_in_;
+  connection_globalbias_ig_ = last_connection_globalbias_ig_;
+  connection_globalbias_og_ = last_connection_globalbias_og_;
+  connection_globalbias_fg_ = last_connection_globalbias_fg_;
 
   connection_hidden_output_ = last_connection_hidden_output_;
 
@@ -588,7 +637,7 @@ void LSTMRecurrentNeuralNetLM::ForwardPropagate(size_t w) {
   pre_cell_og_layers_.rotate(bptt_unfold_level_);
   pre_cell_fg_layers_.rotate(bptt_unfold_level_);
   
-  neuralnet::NeuralNetSigmoidLayer &current_pre_cell_in_layer = pre_cell_in_layers_[0]; 
+  neuralnet::NeuralNetTanhLayer &current_pre_cell_in_layer = pre_cell_in_layers_[0]; 
   neuralnet::NeuralNetSigmoidLayer &current_pre_cell_ig_layer = pre_cell_ig_layers_[0];
   neuralnet::NeuralNetSigmoidLayer &current_pre_cell_og_layer = pre_cell_og_layers_[0];
   neuralnet::NeuralNetSigmoidLayer &current_pre_cell_fg_layer = pre_cell_fg_layers_[0];
@@ -606,6 +655,11 @@ void LSTMRecurrentNeuralNetLM::ForwardPropagate(size_t w) {
   connection_recurrenthidden_mc_ig_.ForwardPropagate(hidden_layers_[1], current_pre_cell_ig_layer);
   connection_recurrenthidden_mc_og_.ForwardPropagate(hidden_layers_[1], current_pre_cell_og_layer);
   connection_recurrenthidden_mc_fg_.ForwardPropagate(hidden_layers_[1], current_pre_cell_fg_layer);
+  // bias -> pre cell layers
+  connection_globalbias_in_.ForwardPropagate(bias_layer_, current_pre_cell_in_layer);
+  connection_globalbias_ig_.ForwardPropagate(bias_layer_, current_pre_cell_ig_layer);
+  connection_globalbias_og_.ForwardPropagate(bias_layer_, current_pre_cell_og_layer);
+  connection_globalbias_fg_.ForwardPropagate(bias_layer_, current_pre_cell_fg_layer);
   // compute activation in the lstm cell
   //current_pre_cell_in_layer.ComputeActivations();
   //current_pre_cell_ig_layer.ComputeActivations();
@@ -721,7 +775,7 @@ void LSTMRecurrentNeuralNetLM::BackPropagate(size_t w) {
     }
     current_hidden_layer.ComputeErrors();
 
-    neuralnet::NeuralNetSigmoidLayer &current_pre_cell_in_layer = pre_cell_in_layers_[0]; 
+    neuralnet::NeuralNetTanhLayer &current_pre_cell_in_layer = pre_cell_in_layers_[0]; 
     neuralnet::NeuralNetSigmoidLayer &current_pre_cell_ig_layer = pre_cell_ig_layers_[0];
     neuralnet::NeuralNetSigmoidLayer &current_pre_cell_og_layer = pre_cell_og_layers_[0];
     neuralnet::NeuralNetSigmoidLayer &current_pre_cell_fg_layer = pre_cell_fg_layers_[0];
@@ -784,7 +838,7 @@ void LSTMRecurrentNeuralNetLM::BackPropagate(size_t w) {
     connection_hidden_output_.BackPropagate(output_layer_, current_hidden_layer);
     current_hidden_layer.ComputeErrors();
 
-    neuralnet::NeuralNetSigmoidLayer &current_pre_cell_in_layer = pre_cell_in_layers_[0]; 
+    neuralnet::NeuralNetTanhLayer &current_pre_cell_in_layer = pre_cell_in_layers_[0]; 
     neuralnet::NeuralNetSigmoidLayer &current_pre_cell_ig_layer = pre_cell_ig_layers_[0];
     neuralnet::NeuralNetSigmoidLayer &current_pre_cell_og_layer = pre_cell_og_layers_[0];
     neuralnet::NeuralNetSigmoidLayer &current_pre_cell_fg_layer = pre_cell_fg_layers_[0];
@@ -849,6 +903,12 @@ void LSTMRecurrentNeuralNetLM::BackPropagate(size_t w) {
     connection_input_mc_og_.AccumulateGradients(input_layers_[i], pre_cell_og_layers_[i]);
     connection_input_mc_fg_.AccumulateGradients(input_layers_[i], pre_cell_fg_layers_[i]);
   }
+
+  // bias terms
+  connection_globalbias_in_.AccumulateGradients(bias_layer_, pre_cell_in_layers_[0]);
+  connection_globalbias_ig_.AccumulateGradients(bias_layer_, pre_cell_ig_layers_[0]);
+  connection_globalbias_og_.AccumulateGradients(bias_layer_, pre_cell_og_layers_[0]);
+  connection_globalbias_fg_.AccumulateGradients(bias_layer_, pre_cell_fg_layers_[0]);
 }
 
 void LSTMRecurrentNeuralNetLM::FastUpdateWeightsMajor(float learning_rate) {
@@ -868,6 +928,11 @@ void LSTMRecurrentNeuralNetLM::FastUpdateWeightsMajor(float learning_rate) {
   connection_input_mc_ig_.FastUpdateWeightsMajor(learning_rate);
   connection_input_mc_og_.FastUpdateWeightsMajor(learning_rate);
   connection_input_mc_fg_.FastUpdateWeightsMajor(learning_rate);
+
+  connection_globalbias_in_.FastUpdateWeightsMajor(learning_rate);
+  connection_globalbias_ig_.FastUpdateWeightsMajor(learning_rate);
+  connection_globalbias_og_.FastUpdateWeightsMajor(learning_rate);
+  connection_globalbias_fg_.FastUpdateWeightsMajor(learning_rate);
 
   lstm_cells_.FastUpdateWeightsMajor(learning_rate);
   if (globalbias()) {
@@ -895,6 +960,11 @@ void LSTMRecurrentNeuralNetLM::FastUpdateWeightsMinor() {
   connection_input_mc_ig_.FastUpdateWeightsMinor();
   connection_input_mc_og_.FastUpdateWeightsMinor();
   connection_input_mc_fg_.FastUpdateWeightsMinor();
+
+  connection_globalbias_in_.FastUpdateWeightsMinor();
+  connection_globalbias_ig_.FastUpdateWeightsMinor();
+  connection_globalbias_og_.FastUpdateWeightsMinor();
+  connection_globalbias_fg_.FastUpdateWeightsMinor();
 
   lstm_cells_.FastUpdateWeightsMinor();
 
