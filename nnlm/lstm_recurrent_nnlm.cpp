@@ -573,7 +573,7 @@ void LSTMRecurrentNeuralNetLM::RestoreLastParams() {
   connection_hidden_output_ = last_connection_hidden_output_;
 
   //lstm_cells_.RestoreLastParams();
-  last_lstm_cells_ = lstm_cells_;
+  lstm_cells_ = last_lstm_cells_;
 
   if (globalbias()) {
     connection_globalbias_output_ = last_connection_globalbias_output_;
